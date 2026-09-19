@@ -7,6 +7,8 @@ against that by [Jev](https://docs.typesafe.ai/introduction), a model from TypeS
 answers yes or no. An async Rust tutorial gets through. A cat compilation from the same search
 results doesn't.
 
+<img width="800" height="507" alt="tangent-demo" src="https://github.com/user-attachments/assets/bfb7bc0a-5a91-46cc-9141-1c0658369f55" />
+
 It's a side project built for fun. No tests, no store listing, and it will sometimes be wrong.
 
 ## Setup
