@@ -1,0 +1,80 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body { width: 300px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, sans-serif; background: #16161a; color: #eee; }
+  h1 { font-size: 15px; margin: 0 0 10px; }
+  [hidden] { display: none !important; }
+  textarea { height: 56px; resize: vertical; }
+  textarea, input[type=password], input[type=text] { box-sizing: border-box; width: 100%; font: inherit; padding: 6px 8px;
+             border-radius: 6px; border: 1px solid #444; background: #0e0e11; color: #eee; }
+  input[type=time] { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid #444; background: #0e0e11; color: #eee; color-scheme: dark; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; }
+  button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid #444; background: #222; color: #eee; cursor: pointer; }
+  button.primary { background: #eee; color: #111; border-color: #eee; }
+  .muted { color: #888; font-size: 12px; }
+  .error { color: #ff8a7a; font-size: 12px; margin-top: 6px; }
+  .shame { color: #ffb86b; font-size: 12px; margin-top: 8px; }
+  .task { font-weight: 600; margin: 2px 0 4px; }
+  .step { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2a2a30; }
+  .phrase { user-select: none; -webkit-user-select: none; cursor: default; font-style: italic;
+            background: #0e0e11; border-radius: 6px; padding: 8px; margin: 6px 0; }
+  .countdown { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; margin: 6px 0; }
+  #recentBox { margin-bottom: 10px; }
+  #recent { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  #recent button { display: flex; justify-content: space-between; gap: 8px; text-align: left; background: #1d1d22; }
+  #recent button.selected { border-color: #eee; }
+  #recent .when { color: #888; flex-shrink: 0; }
+  #recent .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; }
+</style>
+<h1>Tangent</h1>
+
+<section id="idle" hidden>
+  <div id="recentBox" hidden>
+    <div class="muted">Resume</div>
+    <div id="recent"></div>
+  </div>
+  <label for="task" class="muted">What are you working on?</label>
+  <textarea id="task" placeholder="Learning async Rust"></textarea>
+  <div class="row">
+    <label class="muted">Until <input type="time" id="until"></label>
+    <button id="start" class="primary">Start working</button>
+  </div>
+</section>
+
+<section id="active" hidden>
+  <div class="muted">Working on</div>
+  <div class="task" id="activeTask"></div>
+  <div class="muted" id="remaining"></div>
+  <div class="shame" id="shame"></div>
+  <div class="row"><span></span><button id="quit">Quit early</button></div>
+
+  <div class="step" id="askStep" hidden>
+    <label for="reason" class="muted">Why stop early? Jev decides.</label>
+    <textarea id="reason"></textarea>
+    <div class="row"><span class="muted" id="askReply"></span><button id="ask">Ask Jev</button></div>
+  </div>
+
+  <div class="step" id="cooldownStep" hidden>
+    <div class="muted" id="cooldownText"></div>
+    <div class="countdown" id="countdown"></div>
+  </div>
+
+  <div class="step" id="confirmStep" hidden>
+    <div class="muted" id="sentenceIntro"></div>
+    <div class="phrase" id="phrase"></div>
+    <input type="text" id="phraseInput" autocomplete="off" spellcheck="false">
+    <div class="row"><span class="muted" id="confirmReply"></span><button id="confirm">Stop working</button></div>
+  </div>
+</section>
+
+<div class="error" id="error"></div>
+
+<div class="row"><span id="stats" class="muted"></span><button id="clear">Clear verdicts</button></div>
+<details id="jevBox">
+  <summary class="muted" id="mode"></summary>
+  <input type="password" id="apiKey" placeholder="TypeSafe API key" autocomplete="off" style="margin-top:8px">
+  <div class="muted" id="keyLocked" hidden>Locked until the session ends.</div>
+</details>
+<script type="module" src="popup.js"></script>
