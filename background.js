@@ -33,9 +33,10 @@ chrome.runtime.onInstalled.addListener(pruneCache);
 chrome.alarms.onAlarm.addListener(onAlarm);
 resumeSession();
 
-// A session started or ended: open tabs re-check their page.
+// A session was set up, began or ended: open tabs re-check their page. A scheduled session
+// clears sessionStart when it begins, so it bumps you off whatever you were on.
 chrome.storage.onChanged.addListener(async (changes, area) => {
-  if (area !== 'local' || !('enabled' in changes || 'task' in changes)) return;
+  if (area !== 'local' || !('enabled' in changes || 'task' in changes || 'sessionStart' in changes)) return;
   for (const tab of await chrome.tabs.query({})) {
     chrome.tabs.sendMessage(tab.id, { type: 'settings-changed' }).catch(() => {}); // tabs without the content script
   }

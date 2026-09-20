@@ -7,8 +7,9 @@
   textarea { height: 56px; resize: vertical; }
   textarea, input[type=password], input[type=text] { box-sizing: border-box; width: 100%; font: inherit; padding: 6px 8px;
              border-radius: 6px; border: 1px solid #444; background: #0e0e11; color: #eee; }
-  input[type=time] { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid #444; background: #0e0e11; color: #eee; color-scheme: dark; }
+  input[type=time], select { font: inherit; padding: 3px 6px; border-radius: 6px; border: 1px solid #444; background: #0e0e11; color: #eee; color-scheme: dark; }
   .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; }
+  .when-row { flex-wrap: wrap; justify-content: flex-start; gap: 6px; }
   button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid #444; background: #222; color: #eee; cursor: pointer; }
   button.primary { background: #eee; color: #111; border-color: #eee; }
   .muted { color: #888; font-size: 12px; }
@@ -37,21 +38,32 @@
   </div>
   <label for="task" class="muted">What are you working on?</label>
   <textarea id="task" placeholder="Learning async Rust"></textarea>
-  <div class="row">
-    <label class="muted">Until <input type="time" id="until"></label>
-    <button id="start" class="primary">Start working</button>
+  <div class="row when-row">
+    <label class="muted">From
+      <select id="from">
+        <option value="0">Now</option>
+        <option value="15">In 15 min</option>
+        <option value="30">In 30 min</option>
+        <option value="60">In 1 hour</option>
+        <option value="at">At a time…</option>
+      </select>
+    </label>
+    <input type="time" id="fromAt" aria-label="Start time" hidden>
+    <label class="muted">until <input type="time" id="until"></label>
   </div>
+  <div class="row"><span class="muted" id="commitment"></span><button id="start" class="primary">Start working</button></div>
 </section>
 
-<section id="active" hidden>
-  <div class="muted">Working on</div>
+<section id="session" hidden>
+  <div class="muted" id="sessionLabel">Working on</div>
   <div class="task" id="activeTask"></div>
   <div class="muted" id="remaining"></div>
+  <div class="muted" id="waiting" hidden></div>
   <div class="shame" id="shame"></div>
   <div class="row"><span></span><button id="quit">Quit early</button></div>
 
   <div class="step" id="askStep" hidden>
-    <label for="reason" class="muted">Why stop early? Jev decides.</label>
+    <label for="reason" class="muted" id="reasonLabel">Why stop early? Jev decides.</label>
     <textarea id="reason"></textarea>
     <div class="row"><span class="muted" id="askReply"></span><button id="ask">Ask Jev</button></div>
   </div>

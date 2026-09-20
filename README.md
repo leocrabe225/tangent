@@ -20,7 +20,12 @@ It's a side project built for fun. No tests, no store listing, and it will somet
 
 ## Using it
 
-Type your task, pick an end time, click Start working. Until the end time, the task is locked.
+Type your task, pick when it starts and when it ends, click Start working. Until the end time,
+the task is locked.
+
+You can set it to start later: pick "In 30 min" instead of "Now" and nothing is blocked until
+then. When the time comes it checks the page you're on, so it bumps you off whatever you drifted
+into.
 
 If a page gets blocked but really is work, click "This is actually work" and explain why. Jev
 reads your excuse. If it's convincing, the page stays open for the rest of the session.

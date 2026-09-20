@@ -118,6 +118,36 @@ const MESSAGES = {
     'Jev is thinking very hard…',
   ],
 
+  // Under the Start button when the session is set to begin later.
+  scheduleNote: [
+    'Same rules before it starts.',
+    'No takebacks, even before the bell.',
+    'Jev is already counting on it.',
+    'Scheduled means promised.',
+    'Cancelling costs the same as quitting.',
+    'Future you is now on the hook.',
+    'Jev has written it down.',
+    'The clock starts whether you do or not.',
+  ],
+
+  // Popup, while a scheduled session hasn't started yet.
+  pendingWait: [
+    'Nothing is blocked yet. Enjoy it.',
+    'Jev is stretching.',
+    'The internet is still yours. Briefly.',
+    'Last call for nonsense.',
+    'Jev is warming up its disappointment.',
+    'Free range browsing, for now.',
+    'Use this time wisely, or, you know, not.',
+    'Jev is looking at the clock. So should you.',
+    'Grab your coffee. The gate closes soon.',
+    'This is the calm part.',
+    'Jev is waiting. Patiently. Menacingly.',
+    'Scroll while you can.',
+    'The countdown is not a suggestion.',
+    "Whatever you're doing, finish it.",
+  ],
+
   // Quitting early: Jev refused the reason.
   quitRefused: [
     'Jev says no ({pct}). Back to work.',

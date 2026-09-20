@@ -1,4 +1,5 @@
-// Work sessions: a task with an end time. Until then the session can't just be switched off:
+// Work sessions: a task with an end time, and optionally a start time in the future.
+// Once a session exists it can't just be switched off, whether it has started or not:
 // quitting early takes a reason Jev accepts, a cooldown, then retyping a silly sentence.
 // A heartbeat notices when Tangent was off during a session (disabled, or site access
 // restricted) and keeps a record of it.
@@ -19,16 +20,21 @@ const BEAT_MINUTES = 1;
 const GAP_MS = 3 * 60 * 1000;
 
 export async function getSession() {
-  const s = await chrome.storage.local.get(['enabled', 'task', 'sessionId', 'sessionEnd', 'sessions', 'quit']);
+  await beginIfDue();
+  const s = await chrome.storage.local.get(['enabled', 'task', 'sessionId', 'sessionStart', 'sessionEnd', 'sessions', 'quit']);
   const now = Date.now();
-  const active = !!s.enabled && now < (s.sessionEnd ?? 0);
+  // A session exists from the moment it's set up; 'pending' is the wait before it starts.
+  const live = !!s.enabled && now < (s.sessionEnd ?? 0);
+  const pending = live && now < (s.sessionStart ?? 0);
   const sessions = s.sessions ?? {};
   return {
-    active,
+    active: live && !pending,
+    pending,
     task: s.task ?? '',
+    sessionStart: s.sessionStart ?? 0,
     sessionEnd: s.sessionEnd,
-    shame: active ? describeBypasses(sessions[s.sessionId]?.bypasses ?? []) : '',
-    quit: active ? quitPhase(s.quit, now) : null,
+    shame: live ? describeBypasses(sessions[s.sessionId]?.bypasses ?? []) : '',
+    quit: live ? quitPhase(s.quit, now) : null,
     recent: Object.values(sessions).sort((a, b) => b.lastUsed - a.lastUsed).map(({ task, lastUsed }) => ({ task, lastUsed })),
   };
 }
@@ -43,11 +49,15 @@ function quitPhase(quit, now) {
   return null;
 }
 
-export async function startSession({ task, end }) {
+export async function startSession({ task, start, end }) {
   task = task.trim();
+  const now = Date.now();
+  start = Math.max(start ?? now, now);
   if (!task) throw new Error('Say what you are working on first.');
-  if ((await getSession()).active) throw new Error('A session is already running.');
-  if (!(end >= Date.now() + MIN_SESSION_MS)) throw new Error('Pick an end time in the future.');
+  const running = await getSession();
+  if (running.active || running.pending) throw new Error('A session is already set up.');
+  if (!(end >= now + MIN_SESSION_MS)) throw new Error('Pick an end time in the future.');
+  if (!(end >= start + MIN_SESSION_MS)) throw new Error('Pick an end time after the start.');
   // Without a key every call to Jev fails, and failures let pages through.
   const { jevApiKey, sessions = {} } = await chrome.storage.local.get(['jevApiKey', 'sessions']);
   if (!jevApiKey) throw new Error('Add your TypeSafe API key first (Jev, at the bottom).');
@@ -59,9 +69,20 @@ export async function startSession({ task, end }) {
     delete sessions[old];
   }
   // lastBeat restarts now: time between sessions (overnight, say) is never a bypass.
-  await chrome.storage.local.set({ task, sessionEnd: end, sessionId: id, sessions, lastBeat: Date.now(), quit: null, enabled: true });
-  await scheduleAlarms(end);
+  const sessionStart = start > now ? start : 0;
+  await chrome.storage.local.set({ task, sessionStart, sessionEnd: end, sessionId: id, sessions, lastBeat: now, quit: null, enabled: true });
+  await scheduleAlarms(start, end);
   return getSession();
+}
+
+// A scheduled session starts on its own: the clock decides, not the alarm, so a sleeping
+// worker or a closed browser can't make it miss its slot. Clearing sessionStart is also what
+// tells open tabs to judge the page they're on (background.js), so the start bumps you off it.
+async function beginIfDue() {
+  const { enabled, sessionStart } = await chrome.storage.local.get(['enabled', 'sessionStart']);
+  if (!enabled || !sessionStart || Date.now() < sessionStart) return;
+  // Gaps count from the start time, not from now: being away when it began still counts.
+  await chrome.storage.local.set({ sessionStart: 0, lastBeat: sessionStart });
 }
 
 // Tasks that normalize the same are the same session and share cached verdicts.
@@ -75,16 +96,16 @@ export function sameTask(a, b) {
 
 export async function requestQuit({ reason }) {
   const s = await getSession();
-  if (!s.active) throw new Error('No session running.');
+  if (!s.active && !s.pending) throw new Error('No session running.');
   if (s.quit) return { accepted: true }; // already approved; the popup shows where it's at
   reason = reason.trim();
   if (!reason) throw new Error(pick('emptyReason'));
   const minutesLeft = Math.ceil((s.sessionEnd - Date.now()) / 60000);
-  const p = await askJev({
-    task: s.task,
-    facts: [`Minutes left in the planned session: ${minutesLeft}`, `Reason given for stopping early: ${reason}`],
-    question: 'quit',
-  });
+  const facts = s.pending
+    ? [`The session is scheduled and has not started yet: it begins in ${Math.ceil((s.sessionStart - Date.now()) / 60000)} minutes`,
+      `Minutes until its planned end: ${minutesLeft}`, `Reason given for calling it off: ${reason}`]
+    : [`Minutes left in the planned session: ${minutesLeft}`, `Reason given for stopping early: ${reason}`];
+  const p = await askJev({ task: s.task, facts, question: 'quit' });
   const accepted = p >= QUIT_ACCEPT;
   if (accepted) await chrome.storage.local.set({ quit: { approvedAt: Date.now(), phrase: makePhrase(s.task, minutesLeft) } });
   return { p, accepted };
@@ -105,28 +126,31 @@ export async function confirmQuit({ text }) {
 }
 
 async function endSession() {
-  await chrome.alarms.clear('heartbeat');
-  await chrome.alarms.clear('session-end');
-  await chrome.storage.local.set({ enabled: false, quit: null });
+  for (const name of ['heartbeat', 'session-start', 'session-end']) await chrome.alarms.clear(name);
+  await chrome.storage.local.set({ enabled: false, sessionStart: 0, quit: null });
 }
 
 // Runs whenever the worker starts: re-arms alarms (they may not survive a disable) and
 // checks for a gap in the heartbeat.
 export async function resumeSession() {
-  const { enabled, sessionEnd } = await chrome.storage.local.get(['enabled', 'sessionEnd']);
+  await beginIfDue();
+  const { enabled, sessionStart, sessionEnd } = await chrome.storage.local.get(['enabled', 'sessionStart', 'sessionEnd']);
   if (!enabled) return;
-  if (Date.now() < sessionEnd && !(await chrome.alarms.get('heartbeat'))) await scheduleAlarms(sessionEnd);
+  if (Date.now() < sessionEnd && !(await chrome.alarms.get('heartbeat'))) await scheduleAlarms(sessionStart || Date.now(), sessionEnd);
   await checkHeartbeat();
 }
 
 // At 'session-end', the check records any last gap, then ends the session.
 export async function onAlarm(alarm) {
+  if (alarm.name === 'session-start') await beginIfDue();
   if (alarm.name === 'heartbeat' || alarm.name === 'session-end') await checkHeartbeat();
 }
 
-async function scheduleAlarms(end) {
+async function scheduleAlarms(start, end) {
   await chrome.alarms.create('heartbeat', { periodInMinutes: BEAT_MINUTES });
   await chrome.alarms.create('session-end', { when: end });
+  if (start > Date.now()) await chrome.alarms.create('session-start', { when: start });
+  else await chrome.alarms.clear('session-start');
 }
 
 let heartbeatCheck = null;
@@ -136,9 +160,11 @@ function checkHeartbeat() {
 }
 
 async function doCheckHeartbeat() {
-  const s = await chrome.storage.local.get(['enabled', 'sessionEnd', 'lastBeat', 'sessionId', 'sessions']);
+  await beginIfDue();
+  const s = await chrome.storage.local.get(['enabled', 'sessionStart', 'sessionEnd', 'lastBeat', 'sessionId', 'sessions']);
   if (!s.enabled) return;
   const now = Date.now();
+  if (s.sessionStart && now < s.sessionStart) return; // scheduled, not started: nothing to watch yet
   const sessions = s.sessions ?? {};
   const record = (sessions[s.sessionId] ??= { task: '', lastUsed: now, bypasses: [], siteAccessFlagged: false });
   const bypasses = record.bypasses;
